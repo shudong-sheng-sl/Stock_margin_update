@@ -1,0 +1,52 @@
+[
+  {
+    "symbol": "600428",
+    "name": "中远海特",
+    "market": "SSE"
+  },
+  {
+    "symbol": "600160",
+    "name": "巨化股份",
+    "market": "SSE"
+  },
+  {
+    "symbol": "601117",
+    "name": "中国化学",
+    "market": "SSE"
+  },
+  {
+    "symbol": "600585",
+    "name": "海螺水泥",
+    "market": "SSE"
+  },
+  {
+    "symbol": "601688",
+    "name": "华泰证券",
+    "market": "SSE"
+  },
+  {
+    "symbol": "000333",
+    "name": "美的集团",
+    "market": "SZSE"
+  },
+  {
+    "symbol": "002027",
+    "name": "分众传媒",
+    "market": "SZSE"
+  },
+  {
+    "symbol": "600660",
+    "name": "福耀玻璃",
+    "market": "SSE"
+  },
+    {
+    "symbol": "000951",
+    "name": "中国重汽",
+    "market": "SZSE"
+  },
+  {
+    "symbol": "000423",
+    "name": "东阿阿胶",
+    "market": "SZSE"
+  }
+]

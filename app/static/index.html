@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>融资余额 Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Margin Trading Monitor</p>
+          <h1>融资余额 Dashboard</h1>
+          <p class="hero-copy">
+            仅展示配置股票列表最近 10 个交易日的 Live 数据，包括收盘价、当日涨跌幅、融资余额，以及相对上一个交易日的融资变化百分比。
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="refresh-button" class="refresh-button">刷新数据</button>
+          <button id="clear-cache-button" class="ghost-button">清缓存并刷新</button>
+        </div>
+      </section>
+
+      <section class="stats-grid" id="stats-grid">
+        <article class="stat-card">
+          <span>跟踪股票数</span>
+          <strong id="total-stocks">-</strong>
+        </article>
+        <article class="stat-card">
+          <span>最新交易日</span>
+          <strong id="latest-date">-</strong>
+        </article>
+        <article class="stat-card">
+          <span>数据来源</span>
+          <strong id="data-provider">-</strong>
+        </article>
+      </section>
+
+      <section class="table-card">
+        <div class="table-header">
+          <h2>最近 10 个交易日融资余额与行情明细</h2>
+          <p id="status-text">正在加载数据...</p>
+        </div>
+        <p class="source-note" id="source-note"></p>
+        <section class="summary-table-card">
+          <div class="table-header">
+            <h3>股票汇总</h3>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>股票名称</th>
+                  <th>近10日涨跌幅</th>
+                  <th>近10日融资变化</th>
+                </tr>
+              </thead>
+              <tbody id="summary-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+        <div id="stock-cards" class="stock-cards"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
