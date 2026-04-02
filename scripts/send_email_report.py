@@ -136,7 +136,14 @@ def send_email() -> None:
     load_dotenv(ROOT_DIR / ".env")
 
     host = os.getenv("SMTP_HOST")
-    port = int(os.getenv("SMTP_PORT", "465"))
+    raw_port = os.getenv("SMTP_PORT")
+    if raw_port is None or raw_port.strip() == "":
+        port = 465
+    else:
+        try:
+            port = int(raw_port)
+        except ValueError as exc:
+            raise RuntimeError("SMTP_PORT must be an integer, for example 465.") from exc
     username = os.getenv("SMTP_USER")
     password = os.getenv("SMTP_PASSWORD")
     sender = os.getenv("SMTP_FROM")
