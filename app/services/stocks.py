@@ -103,20 +103,31 @@ def _load_live_margin_dashboard(tracked_stocks: list[TrackedStock]) -> list[Marg
     if not tracked_stocks:
         raise RuntimeError("No tracked stocks are configured.")
 
-    trading_dates = _discover_recent_trading_dates(limit=TRADING_DAY_WINDOW, lookback_days=35)
-    if len(trading_dates) < TRADING_DAY_WINDOW:
-        raise RuntimeError(
-            f"Live margin data only returned {len(trading_dates)} trading days; expected {TRADING_DAY_WINDOW}."
-        )
-
-    price_history = _load_price_history(tracked_stocks, trading_dates)
+    candidate_dates = _discover_recent_trading_dates(
+        limit=TRADING_DAY_WINDOW * 3, lookback_days=60
+    )
+    if not candidate_dates:
+        raise RuntimeError("No live margin trading dates were discovered.")
 
     detail_by_date: dict[str, dict[str, dict[str, Any]]] = {}
-    for trading_day in trading_dates:
+    for trading_day in candidate_dates:
         rows = _load_margin_detail_for_date(trading_day)
         if not rows:
             raise RuntimeError(f"Missing live margin detail for trading day {trading_day}.")
         detail_by_date[trading_day] = rows
+
+    trading_dates = _select_complete_trading_dates(
+        tracked_stocks=tracked_stocks,
+        candidate_dates=candidate_dates,
+        detail_by_date=detail_by_date,
+        limit=TRADING_DAY_WINDOW,
+    )
+    if len(trading_dates) < TRADING_DAY_WINDOW:
+        raise RuntimeError(
+            f"Only found {len(trading_dates)} complete trading days where all tracked stocks had margin rows; expected {TRADING_DAY_WINDOW}."
+        )
+
+    price_history = _load_price_history(tracked_stocks, trading_dates)
 
     stock_series: list[MarginStockSeries] = []
     for stock in tracked_stocks:
@@ -158,6 +169,23 @@ def _discover_recent_trading_dates(limit: int, lookback_days: int) -> list[str]:
             break
 
     return sorted(discovered_dates)
+
+
+def _select_complete_trading_dates(
+    tracked_stocks: list[TrackedStock],
+    candidate_dates: list[str],
+    detail_by_date: dict[str, dict[str, dict[str, Any]]],
+    limit: int,
+) -> list[str]:
+    symbols = {stock.symbol for stock in tracked_stocks}
+    complete_dates: list[str] = []
+
+    for trading_day in sorted(candidate_dates):
+        rows = detail_by_date.get(trading_day, {})
+        if symbols.issubset(rows.keys()):
+            complete_dates.append(trading_day)
+
+    return complete_dates[-limit:]
 
 
 def _date_has_margin_data(trading_day: str) -> bool:
