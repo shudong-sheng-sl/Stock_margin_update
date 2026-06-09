@@ -46,6 +46,20 @@ def calculate_window_change(records: list[object], field_name: str) -> float | N
     return ((last - first) / first) * 100
 
 
+def calculate_recent_change(
+    records: list[object], field_name: str, days: int
+) -> float | None:
+    window = records[-days:]
+    if len(window) < 2:
+        return None
+
+    first = getattr(window[0], field_name, None)
+    last = getattr(window[-1], field_name, None)
+    if first in (None, 0) or last is None:
+        return None
+    return ((last - first) / first) * 100
+
+
 def build_html_report() -> tuple[str, str]:
     dashboard = get_margin_dashboard()
     latest_date = dashboard.latest_trading_date or "unknown"
@@ -60,12 +74,20 @@ def build_html_report() -> tuple[str, str]:
         window_financing_change = calculate_window_change(
             stock.records, "financing_balance"
         )
+        recent_price_change = calculate_recent_change(
+            stock.records, "close_price", 5
+        )
+        recent_financing_change = calculate_recent_change(
+            stock.records, "financing_balance", 5
+        )
 
         summary_rows.append(
             f"""
             <tr>
               <td>{stock.name}</td>
+              <td>{format_percent(recent_price_change)}</td>
               <td>{format_percent(window_price_change)}</td>
+              <td>{format_percent(recent_financing_change)}</td>
               <td>{format_percent(window_financing_change)}</td>
             </tr>
             """
@@ -114,7 +136,9 @@ def build_html_report() -> tuple[str, str]:
           <thead>
             <tr>
               <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">股票名称</th>
+              <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">近5日涨跌幅</th>
               <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">近10日涨跌幅</th>
+              <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">近5日融资变化</th>
               <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">近10日融资变化</th>
             </tr>
           </thead>
