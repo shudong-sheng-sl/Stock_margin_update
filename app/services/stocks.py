@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import json
+import os
 import socket
 from pathlib import Path
 from typing import Any
@@ -26,7 +27,6 @@ CACHE_FILE = CACHE_DIR / "margin_dashboard.json"
 CACHE_TTL_MINUTES = 15
 CACHE_SCHEMA_VERSION = "v9"
 TRADING_DAY_WINDOW = 10
-NETWORK_TIMEOUT_SECONDS = 20
 MAX_LOOKBACK_DAYS = 45
 
 MOCK_MARGIN_DATA: dict[str, list[dict[str, float | str]]] = {
@@ -102,12 +102,29 @@ def clear_margin_dashboard_cache() -> bool:
     return True
 
 
+def _network_timeout() -> float | None:
+    raw = os.getenv("MARGIN_FETCH_TIMEOUT", "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def _load_live_margin_dashboard(tracked_stocks: list[TrackedStock]) -> list[MarginStockSeries]:
     if not tracked_stocks:
         raise RuntimeError("No tracked stocks are configured.")
 
-    # Prevent any single exchange request from hanging indefinitely.
-    socket.setdefaulttimeout(NETWORK_TIMEOUT_SECONDS)
+    # Optionally bound each request so a stuck connection can't hang forever.
+    # Off by default: cross-border requests (e.g. from GitHub Actions runners)
+    # are slow but do complete, and an aggressive timeout makes every fetch fail
+    # and yields zero usable trading days. Set MARGIN_FETCH_TIMEOUT (seconds) to
+    # enable a ceiling, mainly useful for local runs.
+    timeout = _network_timeout()
+    if timeout is not None:
+        socket.setdefaulttimeout(timeout)
 
     symbols = {stock.symbol for stock in tracked_stocks}
     detail_by_date: dict[str, dict[str, dict[str, Any]]] = {}
