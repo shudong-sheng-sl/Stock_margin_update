@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import json
+import socket
 from pathlib import Path
 from typing import Any
 from typing import Optional
@@ -23,8 +24,10 @@ CACHE_DIR = BASE_DIR / ".cache"
 TRACKED_STOCKS_FILE = DATA_DIR / "tracked_stocks.json"
 CACHE_FILE = CACHE_DIR / "margin_dashboard.json"
 CACHE_TTL_MINUTES = 15
-CACHE_SCHEMA_VERSION = "v8"
+CACHE_SCHEMA_VERSION = "v9"
 TRADING_DAY_WINDOW = 10
+NETWORK_TIMEOUT_SECONDS = 20
+MAX_LOOKBACK_DAYS = 45
 
 MOCK_MARGIN_DATA: dict[str, list[dict[str, float | str]]] = {
     "600428": [
@@ -103,29 +106,41 @@ def _load_live_margin_dashboard(tracked_stocks: list[TrackedStock]) -> list[Marg
     if not tracked_stocks:
         raise RuntimeError("No tracked stocks are configured.")
 
-    candidate_dates = _discover_recent_trading_dates(
-        limit=TRADING_DAY_WINDOW * 3, lookback_days=60
-    )
-    if not candidate_dates:
-        raise RuntimeError("No live margin trading dates were discovered.")
+    # Prevent any single exchange request from hanging indefinitely.
+    socket.setdefaulttimeout(NETWORK_TIMEOUT_SECONDS)
 
+    symbols = {stock.symbol for stock in tracked_stocks}
     detail_by_date: dict[str, dict[str, dict[str, Any]]] = {}
-    for trading_day in candidate_dates:
+    complete_dates: list[str] = []
+
+    # Walk backward from today, fetching each trading day's margin detail exactly
+    # once, and keep only days where every tracked stock has a row. Stop as soon
+    # as we have the most recent TRADING_DAY_WINDOW complete days. This avoids the
+    # previous approach of downloading the full exchange tables twice per day
+    # across a 30-day window.
+    for offset in range(0, MAX_LOOKBACK_DAYS):
+        if len(complete_dates) >= TRADING_DAY_WINDOW:
+            break
+        candidate = date.today() - timedelta(days=offset)
+        if candidate.weekday() >= 5:  # skip weekends; exchanges are closed
+            continue
+        trading_day = candidate.strftime("%Y%m%d")
         rows = _load_margin_detail_for_date(trading_day)
         if not rows:
-            raise RuntimeError(f"Missing live margin detail for trading day {trading_day}.")
-        detail_by_date[trading_day] = rows
+            continue
+        if symbols.issubset(rows.keys()):
+            detail_by_date[trading_day] = rows
+            complete_dates.append(trading_day)
 
-    trading_dates = _select_complete_trading_dates(
-        tracked_stocks=tracked_stocks,
-        candidate_dates=candidate_dates,
-        detail_by_date=detail_by_date,
-        limit=TRADING_DAY_WINDOW,
-    )
-    if len(trading_dates) < TRADING_DAY_WINDOW:
+    if len(complete_dates) < TRADING_DAY_WINDOW:
         raise RuntimeError(
-            f"Only found {len(trading_dates)} complete trading days where all tracked stocks had margin rows; expected {TRADING_DAY_WINDOW}."
+            f"Only found {len(complete_dates)} complete trading days where all tracked "
+            f"stocks had margin rows within the last {MAX_LOOKBACK_DAYS} days; "
+            f"expected {TRADING_DAY_WINDOW}. A tracked stock may be newly added, "
+            f"suspended, or not margin-eligible."
         )
+
+    trading_dates = sorted(complete_dates)  # ascending: oldest -> newest
 
     price_history = _load_price_history(tracked_stocks, trading_dates)
 
@@ -153,61 +168,6 @@ def _load_live_margin_dashboard(tracked_stocks: list[TrackedStock]) -> list[Marg
         )
 
     return stock_series
-
-
-def _discover_recent_trading_dates(limit: int, lookback_days: int) -> list[str]:
-    discovered_dates: list[str] = []
-
-    for offset in range(0, lookback_days):
-        candidate = date.today() - timedelta(days=offset)
-        candidate_str = candidate.strftime("%Y%m%d")
-
-        if _date_has_margin_data(candidate_str):
-            discovered_dates.append(candidate_str)
-
-        if len(discovered_dates) >= limit:
-            break
-
-    return sorted(discovered_dates)
-
-
-def _select_complete_trading_dates(
-    tracked_stocks: list[TrackedStock],
-    candidate_dates: list[str],
-    detail_by_date: dict[str, dict[str, dict[str, Any]]],
-    limit: int,
-) -> list[str]:
-    symbols = {stock.symbol for stock in tracked_stocks}
-    complete_dates: list[str] = []
-
-    for trading_day in sorted(candidate_dates):
-        rows = detail_by_date.get(trading_day, {})
-        if symbols.issubset(rows.keys()):
-            complete_dates.append(trading_day)
-
-    return complete_dates[-limit:]
-
-
-def _date_has_margin_data(trading_day: str) -> bool:
-    try:
-        import akshare as ak
-    except Exception:
-        return False
-
-    try:
-        dataframe = ak.stock_margin_detail_sse(date=trading_day)
-    except Exception:
-        dataframe = None
-
-    if dataframe is not None and not dataframe.empty:
-        return True
-
-    try:
-        dataframe = ak.stock_margin_detail_szse(date=trading_day)
-    except Exception:
-        dataframe = None
-
-    return dataframe is not None and not dataframe.empty
 
 
 def _load_margin_detail_for_date(trading_day: str) -> dict[str, dict[str, Any]]:

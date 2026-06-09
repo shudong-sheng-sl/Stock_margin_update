@@ -40,13 +40,38 @@
     "market": "SSE"
   },
     {
-    "symbol": "000951",
-    "name": "中国重汽",
-    "market": "SZSE"
+    "symbol": "601872",
+    "name": "招商轮船",
+    "market": "SSE"
   },
   {
     "symbol": "000423",
     "name": "东阿阿胶",
     "market": "SZSE"
+  },
+  {
+    "symbol": "002714",
+    "name": "牧原股份",
+    "market": "SZSE"
+  },
+  {
+    "symbol": "000807",
+    "name": "云铝股份",
+    "market": "SZSE"
+  },
+  {
+    "symbol": "002895",
+    "name": "川恒股份",
+    "market": "SZSE"
+  },
+  {
+    "symbol": "600115",
+    "name": "中国东航",
+    "market": "SSE"
+  },
+  {
+    "symbol": "600285",
+    "name": "羚锐制药",
+    "market": "SSE"
   }
 ]
